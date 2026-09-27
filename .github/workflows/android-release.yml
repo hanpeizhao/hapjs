@@ -15,11 +15,6 @@ on:
 permissions:
   contents: write
 
-# 海外 runner 用官方 maven 源直连（google()/mavenCentral()），不走国内镜像（偶发 502）；
-# build.gradle 据此切换仓库顺序，注释见 mockup/platform/android/build.gradle buildscript 段
-env:
-  REPO_OFFICIAL: "true"
-
 jobs:
   release:
     name: Build & publish release

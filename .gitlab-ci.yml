@@ -15,11 +15,6 @@
 # JDK 21：prebuilts/2.3.0 插件 jar 为 JDK 21 字节码，JDK 17 无法加载（UnsupportedClassVersionError）
 image: eclipse-temurin:21-jdk
 
-# 海外 runner 用官方 maven 源直连（google()/mavenCentral()），不走国内镜像（偶发 502）；
-# build.gradle 据此切换仓库顺序，注释见 mockup/platform/android/build.gradle buildscript 段
-variables:
-  REPO_OFFICIAL: "true"
-
 stages:
   - build
   - release
