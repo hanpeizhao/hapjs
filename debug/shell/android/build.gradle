@@ -3,23 +3,29 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-// Top-level build file where you can add configuration options common to all sub-projects/modules.
+// Debugger 独立工程根构建脚本：为 shell 各子工程应用插件并配置公共 Android 选项。
+// 工具链与主工程（mockup/platform/android）保持一致：AGP 9.2.1 + Gradle 9.6.0 + JDK 17+。
+// 说明：card-common/card-api/debug-log 等模块与主工程共享同一份源码与 build.gradle，
+// 其 namespace 声明见各模块文件；本脚本仅负责工程级公共配置。
 
 buildscript {
     repositories {
+        // 直连 google/mavenCentral 超时的网络环境下，优先使用国内镜像，google() 直连仅作为兜底
+        maven { url 'https://maven.aliyun.com/repository/google' }
+        maven { url 'https://maven.aliyun.com/repository/public' }
+        maven { url 'https://mirrors.cloud.tencent.com/nexus/repository/maven-public/' }
+        mavenCentral()
         maven { url "https://plugins.gradle.org/m2/" }
-        jcenter()
         google()
     }
     dependencies {
-        classpath 'com.android.tools.build:gradle:3.4.0'
-        classpath 'com.moowork.gradle:gradle-node-plugin:1.1.1'
-
+        classpath 'com.android.tools.build:gradle:9.2.1'
         // NOTE: Do not place your application dependencies here; they belong
         // in the individual module build.gradle files
     }
 }
 
+// 应用版本号计算与公共依赖版本定义
 apply from: '../../../core/runtime/android/version.gradle', to: rootProject
 apply from: '../../../core/runtime/android/config.gradle', to: rootProject
 apply from: 'version.gradle', to: rootProject
@@ -31,7 +37,10 @@ allprojects {
         } else {
             maven { url project.properties['privateRepo'] }
         }
-        jcenter()
+        maven { url 'https://maven.aliyun.com/repository/google' }
+        maven { url 'https://maven.aliyun.com/repository/public' }
+        maven { url 'https://mirrors.cloud.tencent.com/nexus/repository/maven-public/' }
+        mavenCentral()
         google()
         flatDir {
             dirs 'libs'
@@ -39,76 +48,139 @@ allprojects {
     }
 }
 
+// 纯 Java 模块：不参与 Android 构建，通过 components.java 发布
+def javaModules = ['card-api', 'android-stub', 'android-hack']
+def applicationModules = ['app']
+
 subprojects {
-    if (project.name == 'card-api' || project.name == 'android-stub' || project.name == 'android-hack') {
-        apply plugin: 'java'
-        return
-    } else if (project.name == 'app') {
+    if (project.name in javaModules) {
+        // java-library：card-api 需要通过 api 配置传递本地 jar 依赖
+        apply plugin: 'java-library'
+        java {
+            sourceCompatibility = JavaVersion.VERSION_1_8
+            targetCompatibility = JavaVersion.VERSION_1_8
+        }
+    } else if (project.name in applicationModules) {
         apply plugin: 'com.android.application'
     } else {
         apply plugin: 'com.android.library'
     }
 
-    android {
-        compileSdkVersion rootProject.compileSdkVersion
-        buildToolsVersion rootProject.buildToolsVersion
-        group "org.hapjs"
-        version rootProject.appVersionName
-        defaultConfig {
-            minSdkVersion 19
-            targetSdkVersion 28
-            versionCode rootProject.appVersionCode
-            versionName rootProject.appVersionName
-            testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
-        }
-        signingConfigs {
-            release {
-                if ('true' == project.properties['signMode']) {
-                    storeFile file(project.properties['storeFile'])
-                    storePassword project.properties['storePassword']
-                    keyAlias project.properties['keyAlias']
-                    keyPassword project.properties['keyPassword']
+    group "org.hapjs"
+    version rootProject.appVersionName
+
+    if (!(project.name in javaModules)) {
+        android {
+            // AGP 8.9+ 的 minor 版本平台（android-36.1）须通过块 DSL 声明
+            compileSdk {
+                version = release(rootProject.compileSdkVersion as int) {
+                    minorApiLevel = rootProject.compileSdkMinor as int
                 }
             }
-        }
-        buildTypes {
-            release {
-                if ('true' == project.properties['signMode']) {
-                    signingConfig signingConfigs.release
+            // AGP 9 的默认 Build Tools 为 36.0.0，SDK 中未安装，显式对齐本地已装版本
+            buildToolsVersion rootProject.buildToolsVersion
+            defaultConfig {
+                // AGP 8 起强制最低 minSdk 21
+                minSdk 21
+                versionCode rootProject.appVersionCode
+                versionName rootProject.appVersionName
+                testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
+            }
+            // AGP 9 起 targetSdk 仅允许在 application 模块声明
+            if (project.name in applicationModules) {
+                defaultConfig {
+                    targetSdk 28
                 }
-                minifyEnabled 'true' != project.properties['debugMode']
-                proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
+            }
+            signingConfigs {
+                release {
+                    if ('true' == project.properties['signMode']) {
+                        storeFile file(project.properties['storeFile'])
+                        storePassword project.properties['storePassword']
+                        keyAlias project.properties['keyAlias']
+                        keyPassword project.properties['keyPassword']
+                    }
+                }
+            }
+            buildTypes {
+                release {
+                    if ('true' == project.properties['signMode']) {
+                        signingConfig signingConfigs.release
+                    }
+                    if (project.name in applicationModules) {
+                        minifyEnabled 'true' != project.properties['debugMode']
+                        // AGP 9 起不再提供 proguard-android.txt（含 -dontoptimize），统一改用 optimize 版本
+                        proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
+                    }
+                }
+            }
+            // 锁定 Java 8 语法级别，与旧版构建行为保持一致
+            compileOptions {
+                sourceCompatibility JavaVersion.VERSION_1_8
+                targetCompatibility JavaVersion.VERSION_1_8
             }
         }
+
+        dependencies {
+            implementation fileTree(dir: 'libs', include: ['*.jar'])
+            androidTestImplementation('androidx.test.espresso:espresso-core:' + rootProject.androidXEspressoVersion, {
+                exclude group: 'com.android.support', module: 'support-annotations'
+                exclude group: 'com.google.code.findbugs', module: 'jsr305'
+            })
+            testImplementation 'junit:junit:4.12'
+        }
     }
+}
 
-    dependencies {
-        implementation fileTree(dir: 'libs', include: ['*.jar'])
-        androidTestImplementation('androidx.test.espresso:espresso-core:' + rootProject.androidXEspressoVersion, {
-            exclude group: 'com.android.support', module: 'support-annotations'
-            exclude group: 'com.google.code.findbugs', module: 'jsr305'
-        })
-        testImplementation 'junit:junit:4.12'
-    }
-
-    if (project.name != 'app') {
-        apply plugin: 'maven'
-
-        uploadArchives {
-            repositories {
-                mavenDeployer {
-                    if ('remote'.equals(project.properties['repoType'])) {
-                        snapshotRepository(url: project.properties['snapshotRepo']) {
-                            authentication(userName: project.properties['repoUser'], password: project.properties['repoPassword'])
+// 发布配置：旧 uploadArchives/maven 插件已废弃，改用 maven-publish。
+// 本地开发使用 publishToMavenLocal；CI 远程仓库通过 -PrepoType=remote 及相关属性配置。
+subprojects {
+    if (!(project.name in applicationModules)) {
+        apply plugin: 'maven-publish'
+        afterEvaluate {
+            publishing {
+                publications {
+                    maven(MavenPublication) {
+                        groupId = "org.hapjs"
+                        artifactId = project.name
+                        version = rootProject.appVersionName
+                        // AGP 9：Android 库的 SoftwareComponent 'release' 已随旧 Variant API 移除，
+                        // java 模块仍走 components.java；如需远端发布 AAR，须改用 AGP 9 新发布 API
+                        def releaseComponent = project.components.findByName('release')
+                        if (releaseComponent != null) {
+                            from releaseComponent
+                        } else if (project.plugins.hasPlugin('java')) {
+                            from components.java
+                        } else {
+                            logger.lifecycle("WARN: ${project.name} 无可用 SoftwareComponent，publication 无内容")
                         }
-                        repository(url: project.properties['releaseRepo']) {
-                            authentication(userName: project.properties['repoUser'], password: project.properties['repoPassword'])
+                    }
+                }
+                repositories {
+                    if ('remote' == project.properties['repoType']) {
+                        maven {
+                            name 'snapshots'
+                            url project.properties['snapshotRepo']
+                            credentials {
+                                username project.properties['repoUser']
+                                password project.properties['repoPassword']
+                            }
                         }
-                    } else {
-                        repository(url: mavenLocal().url)
+                        maven {
+                            name 'releases'
+                            url project.properties['releaseRepo']
+                            credentials {
+                                username project.properties['repoUser']
+                                password project.properties['repoPassword']
+                            }
+                        }
                     }
                 }
             }
         }
     }
+}
+
+tasks.register('clean', Delete) {
+    delete rootProject.layout.buildDirectory
 }

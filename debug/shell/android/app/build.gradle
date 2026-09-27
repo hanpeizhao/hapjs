@@ -5,8 +5,8 @@
 
 android {
     compileOptions {
-        sourceCompatibility 1.8
-        targetCompatibility 1.8
+        sourceCompatibility JavaVersion.VERSION_1_8
+        targetCompatibility JavaVersion.VERSION_1_8
     }
     defaultConfig {
         applicationId "org.hapjs.debugger"
@@ -34,4 +34,9 @@ dependencies {
     } else {
         implementation 'org.hapjs:app-impl:' + rootProject.appVersionName
     }
+}
+
+// AGP 8+ 要求显式 namespace（Manifest 的 package 属性已移除）
+android {
+    namespace 'org.hapjs.debugger'
 }

@@ -31,7 +31,7 @@ String PLATFORM_VERSION_NAME = getPlatformVersionName()
 def JSENV_VERSION = "1.2.8"
 
 // add version file
-task addVersionFile(type: Exec) {
+tasks.register('addVersionFile', Exec) {
     def versionFilePath = "" + projectDir + "/src/main/resources/jsenv_version"
     File versionFile = new File(versionFilePath)
     versionFile.withOutputStream { os ->
@@ -54,6 +54,8 @@ android {
     }
     defaultConfig {
         vectorDrawables.useSupportLibrary = true
+        // AGP 9 起 BuildConfig 不再自动生成 VERSION_NAME，改为显式声明以保持原语义
+        buildConfigField "String", "VERSION_NAME", "\"" + android.defaultConfig.versionName + "\""
     }
 }
 
@@ -69,9 +71,8 @@ dependencies {
     api 'com.facebook.fresco:animated-webp:2.3.0'
     api 'com.facebook.fresco:animated-drawable:2.3.0'
     api 'com.facebook.yoga:yoga:1.5.0'
-    api ('com.facebook.soloader:soloader:0.3.0') {
-        force = true
-    }
+    // Gradle 9：ExternalModuleDependency.force 属性已移除，改用 resolutionStrategy.force
+    api 'com.facebook.soloader:soloader:0.3.0'
     api 'com.caverock:androidsvg:1.4'
     api 'org.greenrobot:eventbus:3.1.1'
     api 'com.tencent:mmkv:1.2.1'
@@ -94,27 +95,64 @@ dependencies {
     implementation "com.google.android.material:material:${rootProject.androidXVersion}"
 }
 
-apply plugin: 'com.moowork.node'
+// 原 force = true 的等效实现：全配置强制 soloader 0.3.0
+configurations.configureEach {
+    resolutionStrategy.force 'com.facebook.soloader:soloader:0.3.0'
+}
+
+import com.github.gradle.node.task.NodeTask
+
+// framework.js 编译链：node-gradle 7.x（原 moowork 插件已停止维护），自动下载 Node 并执行 npm 构建脚本
+apply plugin: 'com.github.node-gradle.node'
 
 node {
     version = '12.13.0'
-    distBaseUrl = "https://direct.nodejs.org/dist/"
+    // node-gradle 7.x 将 distBaseUrl 视为 maven 布局仓库（org.nodejs:node:<ver>:<os>-<arch>@zip），
+    // nodejs.org/dist 等目录布局均不可用。置 null 后走项目仓库解析；发行版 zip 位于
+    // ~/.m2/manual-repo/org/nodejs/node/12.13.0/（见根 build.gradle 仓库说明与 PROJECT_GUIDE.md）。
+    distBaseUrl = null
     download = true
     workDir = file("../.gradle/node")
-    nodeModulesDir = file("../../../framework")
+    nodeProjectDir = file("../../../framework")
 }
 
-task buildInfrasJS(type: NpmTask, dependsOn: 'npmInstall') {
+// node 12 自带的 npm.cmd 会探测全局 npm 并优先使用（本机全局为 npm 9，与 node 12 不兼容，
+// 报 Cannot find module 'node:path'），故统一改用 NodeTask 直接执行发行版内的 npm-cli.js，
+// 并通过 npm_config_prefix 将全局 prefix 指向空目录，使 npm run 内部递归调用 npm 时不再
+// 跳回系统全局 npm。node 目录名规则为 node-v<version>-<os>-<arch>，版本/平台均固定
+def npmGlobalPrefix = file('../.gradle/node/npm-global').absolutePath
+def npmCliFile = file("../.gradle/node/node-v12.13.0-win-x64/node_modules/npm/bin/npm-cli.js")
+
+tasks.register('npmInstallInfras', NodeTask) {
+    dependsOn 'nodeSetup'
+    // npm 依赖走国内镜像（npmmirror 与官方 registry 完全兼容）
+    args = ['install', '--registry=https://registry.npmmirror.com']
+    script.fileValue(npmCliFile)
+    workingDir = file("../../../framework")
+    environment = ['npm_config_prefix': npmGlobalPrefix]
+}
+
+tasks.register('buildInfrasJS', NodeTask) {
+    dependsOn 'npmInstallInfras'
+    script.fileValue(npmCliFile)
     args = ['run', ('true' != project.properties['debugMode']) ? 'native:release' : 'native']
+    workingDir = file("../../../framework")
+    environment = ['npm_config_prefix': npmGlobalPrefix]
 }
 
-task copyInfrasJS(type: Copy, dependsOn: 'buildInfrasJS') {
+tasks.register('copyInfrasJS', Copy) {
+    dependsOn 'buildInfrasJS'
     from '../../../framework/dist/' + (('true' != project.properties['debugMode']) ? 'release' : 'debug')
     include 'infras.js', 'bundles/*.js', 'dsls/dsl-xvm.js', 'app/*/*.js'
     into 'src/main/assets/js'
 }
 
-task cleanJS(type: Delete) {
+tasks.register('cleanJS', Delete) {
     delete 'src/main/assets/js'
 }
-clean.dependsOn cleanJS
+tasks.named('clean') { dependsOn 'cleanJS' }
+
+// AGP 8+ 要求显式 namespace（Manifest 的 package 属性已移除）
+android {
+    namespace 'org.hapjs.runtime'
+}

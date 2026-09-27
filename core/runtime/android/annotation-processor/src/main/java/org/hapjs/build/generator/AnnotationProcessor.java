@@ -8,7 +8,6 @@ package org.hapjs.build.generator;
 import com.fasterxml.jackson.annotation.JsonAutoDetect;
 import com.fasterxml.jackson.annotation.PropertyAccessor;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.sun.tools.javac.code.Type;
 import java.io.File;
 import java.io.IOException;
 import java.lang.annotation.Annotation;
@@ -22,10 +21,13 @@ import java.util.Set;
 import javax.annotation.processing.AbstractProcessor;
 import javax.annotation.processing.ProcessingEnvironment;
 import javax.annotation.processing.RoundEnvironment;
+import javax.annotation.processing.SupportedOptions;
 import javax.annotation.processing.SupportedSourceVersion;
 import javax.lang.model.SourceVersion;
 import javax.lang.model.element.Element;
 import javax.lang.model.element.TypeElement;
+import javax.lang.model.type.DeclaredType;
+import javax.lang.model.type.TypeKind;
 import javax.lang.model.type.TypeMirror;
 import org.hapjs.bridge.annotation.ActionAnnotation;
 import org.hapjs.bridge.annotation.DependencyAnnotation;
@@ -39,6 +41,9 @@ import org.hapjs.bridge.annotation.WebInheritedAnnotation;
 import org.hapjs.bridge.annotation.WidgetAnnotation;
 import org.hapjs.bridge.annotation.WidgetExtensionAnnotation;
 
+// 声明 outputDir 选项（由 AnnotationExecutorPlugin 经 annotationProcessorOptions 注入），
+// 否则 javac 会打印 "选项未被任何处理程序识别" 警告
+@SupportedOptions("outputDir")
 @SupportedSourceVersion(SourceVersion.RELEASE_8)
 public class AnnotationProcessor extends AbstractProcessor {
     private static final String FeatureExtensionAnnotationClassname
@@ -292,15 +297,21 @@ public class AnnotationProcessor extends AbstractProcessor {
         System.out.println("Found dependency: " + dependency.getClassname());
     }
 
+    // 旧实现依赖 javac 内部 API（Type.ClassType.supertype_field），JDK 16+ 强封装下
+    // 无法访问，改用等价的公开 API（TypeElement.getSuperclass）沿类继承链向上爬取
     private List<String> processSuperClasses(TypeMirror superClassType) {
         List<String> superClassesName = new ArrayList<>();
-        while (superClassType instanceof Type.ClassType) {
-            Type.ClassType classType = (Type.ClassType) superClassType;
-            superClassesName.add(classType.tsym.getQualifiedName().toString());
-            superClassType = classType.supertype_field;
-            if (superClassType == null && classType.tsym.type instanceof Type.ClassType) {
-                classType = (Type.ClassType) classType.tsym.type;
-                superClassType = classType.supertype_field;
+        while (superClassType instanceof DeclaredType) {
+            DeclaredType declaredType = (DeclaredType) superClassType;
+            Element element = declaredType.asElement();
+            if (!(element instanceof TypeElement)) {
+                break;
+            }
+            TypeElement typeElement = (TypeElement) element;
+            superClassesName.add(typeElement.getQualifiedName().toString());
+            superClassType = typeElement.getSuperclass();
+            if (superClassType.getKind() == TypeKind.NONE) {
+                break;
             }
         }
         return superClassesName;

@@ -4,9 +4,13 @@
  */
 
 dependencies {
-    compile fileTree(dir: 'libs', include: ['*.jar'])
+    // Gradle 7 起移除 compile 配置，改用 java-library 的 api
+    api fileTree(dir: 'libs', include: ['*.jar'])
     compileOnly 'com.google.android:android:4.1.1.4'
 }
 
-sourceCompatibility = "1.8"
-targetCompatibility = "1.8"
+// Gradle 9：项目级 sourceCompatibility 属性已移除，改用 java 扩展
+java {
+    sourceCompatibility = JavaVersion.VERSION_1_8
+    targetCompatibility = JavaVersion.VERSION_1_8
+}

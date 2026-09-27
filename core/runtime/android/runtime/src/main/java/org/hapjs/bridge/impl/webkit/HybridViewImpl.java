@@ -303,16 +303,8 @@ public class HybridViewImpl implements HybridView {
             mWebView.getSettings().setGeolocationEnabled(flag);
         }
 
-        @Override
-        public void setAppCacheEnabled(boolean flag) {
-            mWebView.getSettings().setAppCacheEnabled(flag);
-        }
-
-        @Override
-        public void setAppCachePath(String appCachePath) {
-            mWebView.getSettings().setAppCachePath(appCachePath);
-        }
-
+        // AppCache 相关配置（setAppCacheEnabled/setAppCachePath）已随 API 36 平台移除，
+        // Android 5.0+ 的 WebView 亦早已忽略 AppCache，不再转发。
         @Override
         public void setGeolocationDatabasePath(String databasePath) {
             mWebView.getSettings().setGeolocationDatabasePath(databasePath);

@@ -516,7 +516,12 @@ public class VideoRecordMode extends CameraBaseMode<GLSurfaceView>
                         + "getVideoThumbnailUrl bitmap null, realOnVideoRecordListener is null.");
             }
         }
-        mediaMetadataRetriever.release();
+        // API 29+ 平台起 release() 声明抛出 IOException，资源释放失败无补救措施，仅记录日志
+        try {
+            mediaMetadataRetriever.release();
+        } catch (IOException e) {
+            Log.e(TAG, "release mediaMetadataRetriever error", e);
+        }
     }
 
     private File saveBitmapToFile(Bitmap bm) {

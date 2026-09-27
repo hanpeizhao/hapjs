@@ -9,10 +9,15 @@ import org.gradle.api.JavaVersion
 import org.gradle.api.Plugin
 import org.gradle.api.Project
 
+/**
+ * 注解执行插件：为每个 Android 模块配置 annotation-processor 的 outputDir 参数，
+ * 使编译期注解处理生成的 hap 元数据 assets 能被打进模块。
+ */
 class AnnotationExecutorPlugin implements Plugin<Project> {
     @Override
     void apply(Project project) {
-        def generatedAssetsDir = new File(project.buildDir, "generated/hap/src/main/assets")
+        // Gradle 9：buildDir 属性已移除，改用 layout.buildDirectory
+        def generatedAssetsDir = new File(project.layout.buildDirectory.get().asFile, "generated/hap/src/main/assets")
         def generatedMetadataDir = new File(generatedAssetsDir, "hap/" + project.name)
 
         project.android.defaultConfig.javaCompileOptions.annotationProcessorOptions.arguments =

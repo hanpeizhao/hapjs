@@ -9,3 +9,8 @@ dependencies {
     compileOnly project(':android-stub')
     implementation project(':android-hack')
 }
+
+// AGP 8+ 要求显式 namespace（Manifest 的 package 属性已移除）
+android {
+    namespace 'org.hapjs.card.sdk'
+}

@@ -102,20 +102,11 @@ public abstract class HybridSettings {
     }
 
     /**
-     * @see android.webkit.WebSettings#setAppCacheEnabled(boolean)
-     */
-    public void setAppCacheEnabled(boolean flag) {
-    }
-
-    /**
-     * @see android.webkit.WebSettings#setAppCachePath(String)
-     */
-    public void setAppCachePath(String appCachePath) {
-    }
-
-    /**
      * @see android.webkit.WebSettings#setGeolocationDatabasePath(String)
      */
     public void setGeolocationDatabasePath(String databasePath) {
     }
+
+    // 注：Application Cache（AppCache）相关配置接口已随 API 36 平台从 WebSettings 移除，
+    // 且 Android 5.0+ 的 WebView 早已忽略 AppCache，故不再提供对应方法。
 }

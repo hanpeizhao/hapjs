@@ -6,16 +6,18 @@
 android {
     sourceSets {
         main {
-            jni.srcDirs = []
             jniLibs.srcDirs = ['src/main/libs']
         }
     }
 
-    packagingOptions {
-        exclude 'lib/arm64-v8a/libc++_shared.so'
-        exclude 'lib/armeabi-v7a/libc++_shared.so'
-        exclude 'lib/x86/libc++_shared.so'
-        exclude 'lib/x86_64/libc++_shared.so'
+    // AGP 9：packagingOptions 已更名为 packaging
+    packaging {
+        jniLibs {
+            excludes += ['lib/arm64-v8a/libc++_shared.so',
+                         'lib/armeabi-v7a/libc++_shared.so',
+                         'lib/x86/libc++_shared.so',
+                         'lib/x86_64/libc++_shared.so']
+        }
     }
 
     externalNativeBuild {
@@ -43,4 +45,9 @@ dependencies {
     implementation "androidx.collection:collection:${rootProject.collectionVersion}"
 
     api "androidx.lifecycle:lifecycle-runtime:${rootProject.lifecycleVersion}"
+}
+
+// AGP 8+ 要求显式 namespace（Manifest 的 package 属性已移除）
+android {
+    namespace 'org.hapjs.inspector'
 }

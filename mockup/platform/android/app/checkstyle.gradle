@@ -1,10 +1,11 @@
+// 代码风格检查配置：app 模块的独立 Checkstyle 任务，遍历仓库 Java 源码做静态检查
 apply plugin: 'checkstyle'
 
 checkstyle {
     toolVersion = "8.44"
 }
 
-task checkstyle(type: Checkstyle) {
+tasks.register('checkstyle', Checkstyle) {
     description 'Runs Checkstyle inspection against Android sourcesets.'
     group = 'Code Quality'
 
@@ -18,8 +19,9 @@ task checkstyle(type: Checkstyle) {
     exclude '**/BuildConfig.java'
     reports {
         xml {
-            println("$project.buildDir/reports/checkstyle-report.xml")
-            destination = new File("$project.buildDir/reports/checkstyle-report.xml")
+            // Gradle 9：Report.outputFile 已移除，改用 outputLocation（Property<RegularFile>）
+            required = true
+            outputLocation = project.layout.buildDirectory.file("reports/checkstyle-report.xml")
         }
     }
     classpath = files()

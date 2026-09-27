@@ -235,7 +235,12 @@ public class Video extends CallbackHybridFeature {
                             "retriever.setDataSource");
             return;
         } finally {
-            retriever.release();
+            // API 29+ 平台起 release() 声明抛出 IOException，finally 块不受前面 catch 保护，需单独捕获
+            try {
+                retriever.release();
+            } catch (IOException e) {
+                Log.e(TAG, "release retriever error", e);
+            }
         }
         if (TextUtils.isEmpty(width)
                 || TextUtils.isEmpty(height)
@@ -597,7 +602,12 @@ public class Video extends CallbackHybridFeature {
                     .callback(new Response(Response.CODE_GENERIC_ERROR, "video uri error"));
             return;
         } finally {
-            metadataRetriever.release();
+            // API 29+ 平台起 release() 声明抛出 IOException，finally 块不受前面 catch 保护，需单独捕获
+            try {
+                metadataRetriever.release();
+            } catch (IOException e) {
+                Log.e(TAG, "release metadataRetriever error", e);
+            }
         }
         if (TextUtils.isEmpty(time)) {
             time = "0";
@@ -686,7 +696,12 @@ public class Video extends CallbackHybridFeature {
                     .callback(new Response(Response.CODE_GENERIC_ERROR, "video uri error"));
             return;
         } finally {
-            metadataRetriever.release();
+            // API 29+ 平台起 release() 声明抛出 IOException，finally 块不受前面 catch 保护，需单独捕获
+            try {
+                metadataRetriever.release();
+            } catch (IOException e) {
+                Log.e(TAG, "release metadataRetriever error", e);
+            }
         }
         if (bitmap == null) {
             Log.e(TAG, "Fail to get a thumbnail image");

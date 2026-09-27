@@ -5,8 +5,7 @@
     SPDX-License-Identifier: Apache-2.0
 -->
 
-<manifest xmlns:android="http://schemas.android.com/apk/res/android"
-    package="org.hapjs.mockup.app.impl">
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
 
     <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" />
     <uses-permission android:name="android.permission.RECORD_AUDIO" />
@@ -20,6 +19,7 @@
         android:theme="@style/HapTheme">
         <activity
             android:name="org.hapjs.mockup.activity.MainActivity"
+            android:exported="true"
             android:theme="@style/HapTheme.NoActionBar">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />

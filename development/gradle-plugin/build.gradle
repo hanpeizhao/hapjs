@@ -3,26 +3,26 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-// Top-level build file where you can add configuration options common to all sub-projects/modules.
+// 根构建脚本：构建 annotation 系列 Gradle 插件（executor/generator）与注解/处理器库。
+// 产物 jar 会复制到 prebuilts/<version>/，供主工程（mockup/platform/android）经
+// prebuilts/<version>/buildscript.gradle 注入 buildscript classpath 使用。
+// 工具链要求：Gradle 9.6.0 + JDK 17+（需与主工程使用的 Gradle 版本一致，保证插件二进制兼容）。
 
 buildscript {
     repositories {
+        maven { url 'https://maven.aliyun.com/repository/public' }
+        maven { url 'https://mirrors.cloud.tencent.com/nexus/repository/maven-public/' }
+        mavenCentral()
+        maven { url "https://plugins.gradle.org/m2/" }
         google()
-        jcenter()
-        maven {
-            url "https://plugins.gradle.org/m2/"
-        }
-    }
-    dependencies {
-        classpath 'com.android.tools.build:gradle:3.4.0'
-        // NOTE: Do not place your application dependencies here; they belong
-        // in the individual module build.gradle files
     }
 }
 
 allprojects {
     repositories {
-        jcenter()
+        maven { url 'https://maven.aliyun.com/repository/public' }
+        maven { url 'https://mirrors.cloud.tencent.com/nexus/repository/maven-public/' }
+        mavenCentral()
     }
 }
 
@@ -37,32 +37,52 @@ static String guessGroup(Project project) {
 subprojects {
     group guessGroup(project)
 
-    project.version="2.3.0"
+    project.version = "2.3.0"
 
-    apply plugin: 'maven'
-    uploadArchives {
-        repositories {
-            mavenDeployer {
+    // 旧 maven/uploadArchives 插件已废弃，改用 maven-publish（publishToMavenLocal 等价）
+    apply plugin: 'maven-publish'
+    afterEvaluate {
+        publishing {
+            publications {
+                maven(MavenPublication) {
+                    groupId = project.group
+                    artifactId = project.name
+                    version = project.version
+                    from components.java
+                }
+            }
+            repositories {
                 if ('remote' == project.properties['repoType']) {
-                    snapshotRepository(url: project.properties['snapshotRepo']) {
-                        authentication(userName: project.properties['repoUser'], password: project.properties['repoPassword'])
+                    maven {
+                        name 'snapshots'
+                        url project.properties['snapshotRepo']
+                        credentials {
+                            username project.properties['repoUser']
+                            password project.properties['repoPassword']
+                        }
                     }
-                    repository(url: project.properties['releaseRepo']) {
-                        authentication(userName: project.properties['repoUser'], password: project.properties['repoPassword'])
+                    maven {
+                        name 'releases'
+                        url project.properties['releaseRepo']
+                        credentials {
+                            username project.properties['repoUser']
+                            password project.properties['repoPassword']
+                        }
                     }
-                } else {
-                    repository(url: mavenLocal().url)
                 }
             }
         }
-    }
 
-    assemble.doLast {
-        def version = project.version
-        copy {
-            from 'build/libs/'
-            into "${rootProject.projectDir.absolutePath}/prebuilts/${version}"
-            include "*-${version}.jar"
+        // 保持原行为：assemble 完成后把 *-<version>.jar 复制到 prebuilts/<version>/
+        // （Gradle 9 任务懒创建，须在 afterEvaluate 后任务才存在）
+        tasks.named('assemble') {
+            doLast {
+                copy {
+                    from project.layout.buildDirectory.dir("libs")
+                    into "${rootProject.projectDir.absolutePath}/prebuilts/${project.version}"
+                    include "*-${project.version}.jar"
+                }
+            }
         }
     }
 }

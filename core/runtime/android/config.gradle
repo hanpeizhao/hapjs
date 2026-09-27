@@ -3,9 +3,15 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
+// 公共依赖版本定义：由各工程根 build.gradle apply 到 rootProject 使用。
+// compileSdk/buildTools 需满足 AGP 9 的最低要求（build-tools >= 36.0.0）。
+// compileSdk 采用 API 36 + minor 1（Android 16 QPR），与本地 SDK 已安装的
+// platforms;android-36.1 对齐；AGP 8.9+ 要求通过 compileSdk { } 块 DSL 声明 minor。
+
 project.ext {
-    compileSdkVersion = 29
-    buildToolsVersion = "29.0.2"
+    compileSdkVersion = 36
+    compileSdkMinor = 1
+    buildToolsVersion = "36.1.0"
     supportLibraryVersion = "28.0.0"
     androidXVersion = '1.2.1'
     appcompatVersion = '1.1.0'

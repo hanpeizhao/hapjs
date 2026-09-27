@@ -42,6 +42,13 @@ android {
     externalNativeBuild {
         cmake {
             path 'CMakeLists.txt'
+            // SDK 中安装的 CMake 版本（NDK r28 工具链要求 CMake 3.22+）
+            version '3.22.1'
         }
     }
+}
+
+// AGP 8+ 要求显式 namespace（Manifest 的 package 属性已移除）
+android {
+    namespace 'org.hapjs.widgets'
 }
