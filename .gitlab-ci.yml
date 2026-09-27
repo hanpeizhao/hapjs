@@ -1,20 +1,124 @@
-image: gengjiawen/android-ndk:qa-2020-07-31
+# GitLab CI 构建配置：已随 2026-09-27 工具链升级（AGP 9.2.1 + Gradle 9.6.0 + JDK 17）同步适配，
+# 并与 GitHub Actions（android-build.yml / android-release.yml）完全对齐：
+# - 日常构建（push / MR，排除 tag）：platform-phone / platform-tv / debugger 三 job 并行，
+#   各构建 debug + release（ABI 收敛 armeabi-v7a:arm64-v8a）；checkstyle + scan_build.sh
+#   门禁保留在 phone job（原有语义，只跑一次）；
+# - 版本发布（push tag 触发，如 git tag 1300）：以 tag 号作版本号（-DappVersionTag）构建
+#   主工程 phone release 与调试器 release，APK + mapping 上传为 job artifacts。
+# 环境准备通过隐藏模板 .build-env 复用（与 .github/actions/setup-build-env 逻辑等价）：
+# JDK 17（基础镜像）→ Android cmdline-tools + SDK 组件（android-36.1 / build-tools 36.1.0 /
+# NDK 28.2.13676358 / CMake 3.22.1）→ Node 12.13.0 本地 maven 仓库（node-gradle 7.x 以 maven
+# 坐标 org.nodejs:node:12.13.0:linux-x64@tar.gz 解析发行版，机制见 doc/PROJECT_GUIDE.md 3.6/4.5 节）。
+# 仓库真身在 $CI_PROJECT_DIR/.node-m2（GitLab cache 仅支持项目内相对路径），软链到
+# ~/.m2/manual-repo 供 Gradle 的 mavenLocal() 布局仓库解析。
+
+image: eclipse-temurin:17-jdk
 
 stages:
   - build
+  - release
 
-buildNative:
+# ---- 环境准备模板（不执行，仅供各 job extends）----
+.build-env:
+  variables:
+    ANDROID_HOME: "$CI_PROJECT_DIR/.android-sdk"
+  cache:
+    key: node-dist-repo
+    paths:
+      - .node-m2/manual-repo
+  before_script:
+    - apt-get update -qq && apt-get install -y -qq curl unzip > /dev/null
+    - curl -fsSL -o cmdline-tools.zip https://dl.google.com/android/repository/commandlinetools-linux-11076708_latest.zip
+    - mkdir -p "$ANDROID_HOME/cmdline-tools"
+    - unzip -q cmdline-tools.zip -d "$ANDROID_HOME/cmdline-tools"
+    - mv "$ANDROID_HOME/cmdline-tools/cmdline-tools" "$ANDROID_HOME/cmdline-tools/latest"
+    - sdkmanager="$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager"
+    - yes | "$sdkmanager" --licenses > /dev/null || true
+    - "$sdkmanager" "platform-tools" "platforms;android-36.1" "build-tools;36.1.0" "ndk;28.2.13676358" "cmake;3.22.1" > /dev/null
+    # Node 12.13.0 发行版以 maven artifact 形式放入本地仓库（node-gradle 7.x 解析要求）
+    - noderepo="$CI_PROJECT_DIR/.node-m2/manual-repo/org/nodejs/node/12.13.0"
+    - mkdir -p "$noderepo" "$HOME/.m2"
+    - if [ ! -f "$noderepo/node-12.13.0-linux-x64.tar.gz" ]; then curl -fsSL -o "$noderepo/node-12.13.0-linux-x64.tar.gz" https://nodejs.org/dist/v12.13.0/node-v12.13.0-linux-x64.tar.gz; fi
+    - if [ ! -f "$noderepo/node-12.13.0.pom" ]; then printf '%s\n' '<?xml version="1.0" encoding="UTF-8"?>' '<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">' '  <modelVersion>4.0.0</modelVersion>' '  <groupId>org.nodejs</groupId>' '  <artifactId>node</artifactId>' '  <version>12.13.0</version>' '  <packaging>tar.gz</packaging>' '</project>' > "$noderepo/node-12.13.0.pom"; fi
+    - ln -sfn "$CI_PROJECT_DIR/.node-m2/manual-repo" "$HOME/.m2/manual-repo"
+
+# ---- 日常构建（push / MR，tag 时跳过）----
+
+platform-phone:
+  extends: .build-env
   stage: build
   script:
     - cd mockup/platform/android
-    - ./gradlew checkstyle
-    - cd ../../../
+    - chmod +x gradlew
+    - ./gradlew checkstyle --console=plain
+    - cd ../../..
     - sh scan_build.sh
     - cd mockup/platform/android
-    - ./gradlew --no-daemon clean assembleRelease
+    - ./gradlew assemblePhoneDebug assemblePhoneRelease -PPROP_APP_ABI_DEBUG=armeabi-v7a:arm64-v8a -PPROP_APP_ABI_RELEASE=armeabi-v7a:arm64-v8a --console=plain
   artifacts:
-    when: on_failure
+    expire_in: 1 week
+    when: always
     paths:
-      - mockup/platform/android/app/build/reports/checkstyle/checkstyle.html
-  tags:
-    - docker
+      - mockup/platform/android/app/build/outputs/apk/phone/**/*.apk
+      # 与 app/checkstyle.gradle 中 outputLocation 配置一致，便于失败诊断
+      - mockup/platform/android/app/build/reports/checkstyle-report.xml
+  rules:
+    - if: $CI_COMMIT_TAG
+      when: never
+    - when: on_success
+
+platform-tv:
+  extends: .build-env
+  stage: build
+  script:
+    - cd mockup/platform/android
+    - chmod +x gradlew
+    - ./gradlew assembleTvDebug assembleTvRelease -PPROP_APP_ABI_DEBUG=armeabi-v7a:arm64-v8a -PPROP_APP_ABI_RELEASE=armeabi-v7a:arm64-v8a --console=plain
+  artifacts:
+    expire_in: 1 week
+    when: always
+    paths:
+      - mockup/platform/android/app/build/outputs/apk/tv/**/*.apk
+  rules:
+    - if: $CI_COMMIT_TAG
+      when: never
+    - when: on_success
+
+debugger:
+  extends: .build-env
+  stage: build
+  script:
+    - cd debug/shell/android
+    - chmod +x gradlew
+    - ./gradlew :app:assembleDebug :app:assembleRelease -PdebugMode=false --console=plain
+  artifacts:
+    expire_in: 1 week
+    when: always
+    paths:
+      - debug/shell/android/app/build/outputs/apk/**/*.apk
+  rules:
+    - if: $CI_COMMIT_TAG
+      when: never
+    - when: on_success
+
+# ---- 版本发布（push tag 触发，tag 号即版本号，如 git tag 1300 && git push origin 1300）----
+
+android-release:
+  extends: .build-env
+  stage: release
+  script:
+    - cd mockup/platform/android
+    - chmod +x gradlew
+    - ./gradlew assemblePhoneRelease -PPROP_APP_ABI_RELEASE=armeabi-v7a:arm64-v8a -DappVersionTag=$CI_COMMIT_TAG --console=plain
+    - cd ../../../debug/shell/android
+    - chmod +x gradlew
+    - ./gradlew :app:assembleRelease -PdebugMode=false -DappVersionTag=$CI_COMMIT_TAG --console=plain
+  artifacts:
+    expire_in: 30 days
+    paths:
+      - mockup/platform/android/app/build/outputs/apk/phone/release/*.apk
+      - debug/shell/android/app/build/outputs/apk/release/*.apk
+      - mockup/platform/android/app/build/outputs/mapping/phone/release/mapping.txt
+      - debug/shell/android/app/build/outputs/mapping/release/mapping.txt
+  rules:
+    - if: $CI_COMMIT_TAG

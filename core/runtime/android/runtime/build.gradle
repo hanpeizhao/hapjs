@@ -109,7 +109,7 @@ node {
     version = '12.13.0'
     // node-gradle 7.x 将 distBaseUrl 视为 maven 布局仓库（org.nodejs:node:<ver>:<os>-<arch>@zip），
     // nodejs.org/dist 等目录布局均不可用。置 null 后走项目仓库解析；发行版 zip 位于
-    // ~/.m2/manual-repo/org/nodejs/node/12.13.0/（见根 build.gradle 仓库说明与 PROJECT_GUIDE.md）。
+    // ~/.m2/manual-repo/org/nodejs/node/12.13.0/（见根 build.gradle 仓库说明与 doc/PROJECT_GUIDE.md）。
     distBaseUrl = null
     download = true
     workDir = file("../.gradle/node")

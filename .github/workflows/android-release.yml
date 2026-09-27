@@ -1,0 +1,68 @@
+# 发布工作流（手动触发，输入版本号），对应原仓库已删除的 build_and_release.yml 并适配新工具链：
+# 构建主工程 phone release 与调试器 release（含混淆 mapping），创建 GitHub Release
+# 并上传 APK 与 mapping。以 gh CLI 替代原已停止维护的 actions/create-release@v1 /
+# upload-release-asset@v1。环境准备复用 .github/actions/setup-build-env。
+name: Android Release
+
+on:
+  workflow_dispatch:
+    inputs:
+      versionTag:
+        description: 'Release version tag (e.g. 1300)'
+        required: true
+        type: string
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    name: Build & publish release
+    runs-on: ubuntu-latest
+    env:
+      VERSION_TAG: ${{ inputs.versionTag }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: ./.github/actions/setup-build-env
+
+      - name: Build platform app (phone release)
+        working-directory: mockup/platform/android
+        run: |
+          chmod +x gradlew
+          ./gradlew assemblePhoneRelease \
+            -PPROP_APP_ABI_RELEASE=armeabi-v7a:arm64-v8a \
+            -DappVersionTag=${{ env.VERSION_TAG }} \
+            --console=plain
+
+      - name: Build debugger (release)
+        working-directory: debug/shell/android
+        run: |
+          chmod +x gradlew
+          ./gradlew :app:assembleRelease -PdebugMode=false \
+            -DappVersionTag=${{ env.VERSION_TAG }} \
+            --console=plain
+
+      - name: Create GitHub Release
+        run: gh release create "$VERSION_TAG" --title "Release $VERSION_TAG" --generate-notes
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Rename & upload release assets (APKs & mappings)
+        # 与原发布产物命名保持一致（hapjs_platform_preview_release_v<tag>.apk 等）
+        run: |
+          cp mockup/platform/android/app/build/outputs/apk/phone/release/app-phone-release.apk \
+            hapjs_platform_preview_release_v$VERSION_TAG.apk
+          cp debug/shell/android/app/build/outputs/apk/release/app-release.apk \
+            hapjs_debugger_v$VERSION_TAG.apk
+          cp mockup/platform/android/app/build/outputs/mapping/phone/release/mapping.txt \
+            hapjs_platform_preview_release_v${VERSION_TAG}_mapping.txt
+          cp debug/shell/android/app/build/outputs/mapping/release/mapping.txt \
+            hapjs_debugger_v${VERSION_TAG}_mapping.txt
+          gh release upload "$VERSION_TAG" \
+            hapjs_platform_preview_release_v$VERSION_TAG.apk \
+            hapjs_debugger_v$VERSION_TAG.apk \
+            hapjs_platform_preview_release_v${VERSION_TAG}_mapping.txt \
+            hapjs_debugger_v${VERSION_TAG}_mapping.txt
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}

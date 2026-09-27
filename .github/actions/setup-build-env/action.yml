@@ -1,0 +1,48 @@
+# 公共构建环境准备（供 android-build.yml / android-release.yml 各 job 复用）：
+# JDK 17 + SDK 组件（android-36.1 / build-tools 36.1.0 / NDK 28.2.13676358 / CMake 3.22.1）
+# + Node 12.13.0 本地 maven 仓库（node-gradle 7.x 以 maven 坐标解析发行版：
+#   Windows 为 win-x64@zip，Linux 为 linux-x64@tar.gz）。
+# 机制详见 doc/PROJECT_GUIDE.md 第 3.6 节与 4.5 节。
+name: Setup hapjs build environment
+description: Install JDK, Android SDK components and local Node maven repo
+
+runs:
+  using: composite
+  steps:
+    - name: Set up JDK 17
+      uses: actions/setup-java@v4
+      with:
+        distribution: temurin
+        java-version: '17'
+        cache: gradle
+
+    - name: Install Android SDK components
+      shell: bash
+      run: |
+        sdkmanager="cmdline-tools/latest/bin/sdkmanager"
+        yes | "$ANDROID_HOME/$sdkmanager" --licenses > /dev/null 2>&1 || true
+        "$ANDROID_HOME/$sdkmanager" \
+          "platforms;android-36.1" \
+          "build-tools;36.1.0" \
+          "ndk;28.2.13676358" \
+          "cmake;3.22.1"
+
+    - name: Prepare Node 12.13.0 local maven repo
+      shell: bash
+      run: |
+        dir="$HOME/.m2/manual-repo/org/nodejs/node/12.13.0"
+        mkdir -p "$dir"
+        curl -fsSL -o "$dir/node-12.13.0-linux-x64.tar.gz" \
+          https://nodejs.org/dist/v12.13.0/node-v12.13.0-linux-x64.tar.gz
+        cat > "$dir/node-12.13.0.pom" <<'EOF'
+        <?xml version="1.0" encoding="UTF-8"?>
+        <project xmlns="http://maven.apache.org/POM/4.0.0"
+                 xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+                 xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+          <modelVersion>4.0.0</modelVersion>
+          <groupId>org.nodejs</groupId>
+          <artifactId>node</artifactId>
+          <version>12.13.0</version>
+          <packaging>tar.gz</packaging>
+        </project>
+        EOF

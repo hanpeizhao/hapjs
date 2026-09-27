@@ -105,7 +105,7 @@
 | `%LOCALAPPDATA%\Android\Sdk\ndk\28.2.13676358` | NDK r28c（腾讯镜像下载） | inspector 无预编译 so（`src/main/libs` 为空），ndkBuild 必须真编译 |
 | `%LOCALAPPDATA%\Android\Sdk\cmake\3.22.1` | CMake 3.22.1 | widgets 的 externalNativeBuild |
 | `%LOCALAPPDATA%\Android\Sdk\platforms\android-36.1`、`build-tools\36.1.0` | SDK 平台 | compileSdk 36.1 |
-| `~/.m2/manual-repo/org/nodejs/node/12.13.0/` | `node-12.13.0.pom` + `node-12.13.0-win-x64.zip` | node-gradle 7.x 以 maven 坐标 `org.nodejs:node:<ver>:<os>-<arch>@zip` 解析 Node 发行版，nodejs.org/dist 目录布局不被支持，故手工搭建本地 maven 仓库（pom packaging=zip + 官方发行版 zip，腾讯 nodejs-release 镜像下载） |
+| `~/.m2/manual-repo/org/nodejs/node/12.13.0/` | `node-12.13.0.pom` + `node-12.13.0-win-x64.zip` | node-gradle 7.x 以 maven 坐标 `org.nodejs:node:<ver>:<os>-<arch>@<ext>` 解析 Node 发行版（Windows 为 `win-x64@zip`，Linux 为 `linux-x64@tar.gz`），nodejs.org/dist 目录布局不被支持，故手工搭建本地 maven 仓库（pom packaging=zip/tar.gz + 官方发行版包，腾讯 nodejs-release 镜像/官方 dist 下载）。GitHub Actions CI 由工作流自动搭建 Linux 侧仓库（见 4.5） |
 
 ### 3.7 prebuilts 插件 jar 的自动同步机制（git 变更中出现 jar 的原因）
 
@@ -204,6 +204,33 @@ gradlew :app:assembleDebug
 | `-PENABLE_INFRAS_JS_CACHE=true` | 跳过前端 framework.js 重复构建（加速二次构建） |
 | `-PdebugMode=true` | 前端 infras JS 走 debug 构建（npm run native） |
 
+### 4.5 GitHub Actions CI（云端构建）
+
+公共环境准备抽取为本地 composite action（`.github/actions/setup-build-env/`），
+所有 job 复用：JDK 17（temurin）+ Gradle 缓存 → 安装 SDK 组件
+（`platforms;android-36.1`、`build-tools;36.1.0`、`ndk;28.2.13676358`、`cmake;3.22.1`）
+→ 自动搭建 Node 12.13.0 本地 maven 仓库（Linux 侧 `linux-x64@tar.gz`，从 nodejs.org
+官方 dist 下载，GitHub 网络无需镜像）。CI 上无需任何手工准备——3.6 节的环境准备
+全部由它完成；国内开发机仍按 3.6 手动准备（镜像差异）。
+
+| 工作流 | 触发 | 内容 |
+|---|---|---|
+| [android-build.yml](../.github/workflows/android-build.yml)（日常构建） | push 到 main / PR / 手动 | 主工程 phone/tv 两 flavor 并行，各构建 debug + release（ABI 收敛为 armeabi-v7a:arm64-v8a 缩短时长）；checkstyle 静态检查；调试器 debug + release；产物以 artifact 上传 |
+| [android-release.yml](../.github/workflows/android-release.yml)（发布） | 手动，输入版本号 | 构建主工程 phone release 与调试器 release（含混淆 mapping），创建 GitHub Release 并按原命名约定上传 APK + mapping（`gh` CLI 实现） |
+
+> 原仓库的 `main.yml`（日常 CI）与 `build_and_release.yml`（Release 发布）依赖
+> 2020 年的旧容器镜像（JDK 8 + NDK r17c），无法运行 Gradle 9.6，且 `main.yml`
+> 触发条件与日常构建工作流重叠会导致每次 push 必失败，二者已删除，
+> 功能已由上表两个工作流在新工具链上等价承接。
+>
+> [.gitlab-ci.yml](../.gitlab-ci.yml)（GitLab CI）与 GitHub 侧完全对齐：
+> 基于 `eclipse-temurin:17-jdk` 镜像，环境准备抽为隐藏模板 `.build-env`（逻辑等价于
+> composite action，Node maven 仓库真身在项目内 `.node-m2/` 并软链到 `~/.m2/` 以支持
+> GitLab 缓存）。日常构建（push/MR）为 phone/tv/debugger 三 job 并行构建 debug + release
+> （checkstyle + scan_build.sh 门禁在 phone job）；push tag（tag 号即版本号，如
+> `git tag 1300`）触发发布 job：以 `-DappVersionTag` 构建 phone/调试器 release，
+> APK + mapping 上传为 job artifacts（30 天有效）。
+
 ---
 
 ## 5. 前端 framework.js 编译链（回答"要不要编译前端文件、放到哪里"）
@@ -252,6 +279,10 @@ gradlew :app:assembleDebug
 
 ```
 hapjs
+├── doc/                     项目文档（本文档）
+├── .github/                 GitHub 配置
+│   ├── workflows/           构建与发布工作流（android-build.yml / android-release.yml，见 4.5）
+│   └── actions/             本地 composite action（公共构建环境准备，供工作流复用）
 ├── core/                    ★ 框架核心（可独立运行 rpk 的 runtime）
 │   ├── framework/           前端框架 + 编译器，npm/rollup 构建输出 framework.js（见第 5 节）
 │   ├── runtime/android/     Android 端运行时，输出 aar

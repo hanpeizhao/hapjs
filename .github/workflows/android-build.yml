@@ -1,0 +1,69 @@
+# 日常构建工作流（push / PR / 手动触发），对应原仓库已删除的 main.yml 并适配新工具链：
+# - 主工程 phone/tv 两个 flavor 并行，各构建 debug + release（恢复原全量变体）；
+# - 调试器工程 debug + release（release 传 -PdebugMode=false，与原发布构建一致）；
+# - checkstyle 静态检查（原 .gitlab-ci.yml 中的 checkstyle 环节）。
+# 环境准备（JDK/SDK/NDK/CMake/Node maven 仓库）复用本地 composite action，见
+# .github/actions/setup-build-env；机制说明见 doc/PROJECT_GUIDE.md 4.5 节。
+name: Android Build
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  platform:
+    name: Platform app (${{ matrix.flavor }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        flavor: [ phone, tv ]
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: ./.github/actions/setup-build-env
+
+      - name: Checkstyle
+        if: matrix.flavor == 'phone'
+        working-directory: mockup/platform/android
+        run: |
+          chmod +x gradlew
+          ./gradlew checkstyle --console=plain
+
+      - name: Build debug & release APKs
+        working-directory: mockup/platform/android
+        run: |
+          # ABI 收敛为 armeabi-v7a:arm64-v8a（x86 无真机意义，缩短 CI 时长）
+          ./gradlew "assemble${{ matrix.flavor }}Debug" "assemble${{ matrix.flavor }}Release" \
+            -PPROP_APP_ABI_DEBUG=armeabi-v7a:arm64-v8a -PPROP_APP_ABI_RELEASE=armeabi-v7a:arm64-v8a \
+            --console=plain
+
+      - name: Upload APKs
+        uses: actions/upload-artifact@v4
+        with:
+          name: platform-${{ matrix.flavor }}-apks
+          if-no-files-found: error
+          path: mockup/platform/android/app/build/outputs/apk/${{ matrix.flavor }}/**/*.apk
+
+  debugger:
+    name: Debugger shell
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: ./.github/actions/setup-build-env
+
+      - name: Build debug & release APKs
+        working-directory: debug/shell/android
+        run: |
+          chmod +x gradlew
+          ./gradlew :app:assembleDebug :app:assembleRelease -PdebugMode=false --console=plain
+
+      - name: Upload APKs
+        uses: actions/upload-artifact@v4
+        with:
+          name: debugger-apks
+          if-no-files-found: error
+          path: debug/shell/android/app/build/outputs/apk/**/*.apk

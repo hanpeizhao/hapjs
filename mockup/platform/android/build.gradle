@@ -36,7 +36,8 @@ apply from: '../../../core/runtime/android/config.gradle', to: rootProject
 allprojects {
     repositories {
         // node-gradle 7.x 以 maven 依赖方式解析 Node 发行版（org.nodejs:node，maven 布局），
-        // 国内镜像均无此 artifact，构建前须按 PROJECT_GUIDE.md 说明将其放入 ~/.m2/manual-repo
+        // 国内镜像均无此 artifact，构建前须按 doc/PROJECT_GUIDE.md 说明将其放入 ~/.m2/manual-repo
+        // （GitHub Actions CI 由 .github/workflows/android-build.yml 自动搭建该仓库）
         maven { url "file:///${System.getProperty('user.home').replace('\\', '/')}/.m2/manual-repo" }
         if ('remote' != project.properties['repoType']) {
             mavenLocal()
