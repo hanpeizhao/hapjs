@@ -119,9 +119,11 @@ node {
 // node 12 自带的 npm.cmd 会探测全局 npm 并优先使用（本机全局为 npm 9，与 node 12 不兼容，
 // 报 Cannot find module 'node:path'），故统一改用 NodeTask 直接执行发行版内的 npm-cli.js，
 // 并通过 npm_config_prefix 将全局 prefix 指向空目录，使 npm run 内部递归调用 npm 时不再
-// 跳回系统全局 npm。node 目录名规则为 node-v<version>-<os>-<arch>，版本/平台均固定
+// 跳回系统全局 npm。node 目录名规则为 node-v<version>-<os>-<arch>，随运行平台而异
+// （Windows 发行版为 win-x64 zip，Linux 为 linux-x64 tar.gz），按 os.name 动态拼接
+def isWindowsBuild = System.getProperty('os.name').toLowerCase().contains('windows')
 def npmGlobalPrefix = file('../.gradle/node/npm-global').absolutePath
-def npmCliFile = file("../.gradle/node/node-v12.13.0-win-x64/node_modules/npm/bin/npm-cli.js")
+def npmCliFile = file("../.gradle/node/node-v12.13.0-${isWindowsBuild ? 'win-x64' : 'linux-x64'}/node_modules/npm/bin/npm-cli.js")
 
 tasks.register('npmInstallInfras', NodeTask) {
     dependsOn 'nodeSetup'
