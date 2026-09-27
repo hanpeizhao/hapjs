@@ -140,6 +140,43 @@ JPMS 强封装（访问 javac 内部 API 被拒）直接失效，还原 jar 会�
 另：`debug/shell/android/gradle/gradle-daemon-jvm.properties` 是 Gradle 9 首次运行时
 自动生成的 daemon JVM 配置（记录所用 JBR 版本），随仓库提交即可，删除后会再生成。
 
+### 3.8 build cache 下的元数据丢失陷阱（秒开失效复盘）
+
+2026-09-28 实际踩坑：**构建成功、依赖解析正常，但装上手机后点"秒开"毫无反应**，
+日志只有 `LauncherManager W Fail to find responsible LauncherClient`，且"之前管用过"。
+
+**元数据生成链路（秒开依赖的第一环）**——由 development/gradle-plugin 的两个插件驱动：
+
+```
+各 library 模块（runtime/features/widgets/...）编译时
+  AnnotationProcessor（javac 注解处理器）扫描 @ExtensionAnnotation 等
+  → 把 dependency.json / widget.json / feature_extension.json 等"副作用"写入
+    <模块>/build/generated/hap/src/main/assets/hap/<模块名>/     ①
+  → 该目录已注册为模块 assets sourceSet
+  → :app 的 mergePhoneDebugAssets 汇总所有依赖的 assets           ②
+  → AnnotationGeneratorPlugin（:app compile 前）扫描合并结果，
+    MetadataGenerator 生成 DependencyManagerImpl.java             ③
+  → 运行时 Runtime.Holder 经 dependencyMap["RuntimeImplClass"]
+    反射加载 MockupRuntime → 注册 LauncherClient → 秒开可达
+```
+
+**失效机制**：① 是 javac 的**副作用文件**，不在 JavaCompile 任务声明的 outputs 里。
+Gradle build cache 命中（任务显示 `FROM-CACHE`）时，class 产物会恢复，**这些 JSON 不会**——
+于是 ② 合并不到、③ 生成的 `DependencyManagerImpl` 缺 `RuntimeImplClass` 映射、
+运行时退化到 `EmptyDependencyManager`。"之前管用"是因为那次是缓存未命中的首次真实编译；
+此后任何缓存命中都会静默复现。构建全程无报错，极易误判为代码问题。
+
+**修复**（AnnotationExecutorPlugin.groovy，jar 随 3.7 机制同步进 prebuilts）：
+
+1. 把 `generatedAssetsDir` 声明为 compile 任务附加输出——缓存命中时 JSON 随产物一并恢复；
+2. 库模块的 `merge<Variant>Assets` 显式 `dependsOn` 同 variant 的 compile 任务——既保证
+   JSON 先于合并生成，也满足 Gradle 9 的 implicit dependency 竞态校验。application 模块
+   必须排除：其 compile 已被 generator 反向依赖 merge assets（扫描合并结果生成
+   DependencyManagerImpl），再依赖会成环。
+
+**排查口诀**：这类"任务成功但行为异常"先看构建日志里 compile 任务是不是 `FROM-CACHE`，
+再看生成物目录是否真的有文件——副作用类输出必须显式纳入任务 outputs。
+
 ---
 
 ## 4. 编译与运行
