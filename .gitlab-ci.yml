@@ -12,7 +12,8 @@
 # 仓库真身在 $CI_PROJECT_DIR/.node-m2（GitLab cache 仅支持项目内相对路径），软链到
 # ~/.m2/manual-repo 供 Gradle 的 mavenLocal() 布局仓库解析。
 
-image: eclipse-temurin:17-jdk
+# JDK 21：prebuilts/2.3.0 插件 jar 为 JDK 21 字节码，JDK 17 无法加载（UnsupportedClassVersionError）
+image: eclipse-temurin:21-jdk
 
 stages:
   - build

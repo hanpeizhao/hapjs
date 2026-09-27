@@ -9,11 +9,12 @@ description: Install JDK, Android SDK components and local Node maven repo
 runs:
   using: composite
   steps:
-    - name: Set up JDK 17
+# JDK 21：prebuilts/2.3.0 插件 jar 为 JDK 21 字节码（class file 65），且与本地 Studio JBR 21 一致
+    - name: Set up JDK 21
       uses: actions/setup-java@v4
       with:
         distribution: temurin
-        java-version: '17'
+        java-version: '21'
         cache: gradle
 
     - name: Install Android SDK components

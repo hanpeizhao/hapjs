@@ -119,6 +119,11 @@ subprojects {
                 sourceCompatibility JavaVersion.VERSION_1_8
                 targetCompatibility JavaVersion.VERSION_1_8
             }
+            // AGP 8+ 默认不生成 BuildConfig，而 app-impl 等模块使用 buildConfigField，统一开启
+            // （与主工程 mockup/platform/android/build.gradle 的处理一致）
+            buildFeatures {
+                buildConfig true
+            }
         }
 
         dependencies {

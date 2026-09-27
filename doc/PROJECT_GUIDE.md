@@ -29,7 +29,7 @@
 
 | 工具 | 要求版本 | 说明 |
 |---|---|---|
-| JDK | **17+（推荐 JBR 21）** | 即最新 Studio 自带的 JBR，无需单独安装 JDK |
+| JDK | **21（推荐 JBR 21，即最新 Studio 自带）** | prebuilts 插件 jar 为 JDK 21 字节码（见 3.7），JDK 17 会报 UnsupportedClassVersionError；CI 亦统一用 21 |
 | Gradle | **9.6.0** | mockup 与 debug/shell 两处 wrapper 均已升级 |
 | Android Gradle Plugin | **9.2.1** | 见 `mockup/platform/android/build.gradle`；上限以 IDE 为准（Studio 2026.1.1 "Quail" 最高支持 9.2.1），不要随意升级 |
 | Kotlin | 1.3.61 | 仅编译期扫描用，已随升级处理 |
@@ -50,7 +50,7 @@
 
 原工具链（AGP 3.4.2 + Gradle 5.2.1 + JDK 8）与最新 Android Studio 不兼容
 （JBR 21 跑不了 Gradle 5.2.1，新版 Studio 对过老 AGP 有兼容下限），因此整体升级为
-**AGP 9.2.1 + Gradle 9.6.0 + JDK 17+/JBR 21**（AGP 版本受 IDE 支持上限约束，Studio 2026.1.1 "Quail" 最高支持 AGP 9.2.1），目标是 Quail 直接 Sync/构建。
+**AGP 9.2.1 + Gradle 9.6.0 + JDK 21/JBR 21**（AGP 版本受 IDE 支持上限约束，Studio 2026.1.1 "Quail" 最高支持 AGP 9.2.1），目标是 Quail 直接 Sync/构建。
 升级遵循原则：只修不兼容点，不改业务行为；对平台已移除且无实效的 API 直接删除调用链，
 不做反射 hack。
 
@@ -134,6 +134,8 @@
 
 **这些 jar 变更必须保留并提交**：旧版 `annotation-processor.jar` 在 JDK 16+ 下会因
 JPMS 强封装（访问 javac 内部 API 被拒）直接失效，还原 jar 会导致构建失败。
+另注意：现 jar 均为 **JDK 21 字节码（class file 65）**，构建运行时必须用 JDK 21+——
+用 JDK 17 加载会报 `UnsupportedClassVersionError`，CI 环境因此统一使用 JDK 21（见 4.5）。
 
 另：`debug/shell/android/gradle/gradle-daemon-jvm.properties` 是 Gradle 9 首次运行时
 自动生成的 daemon JVM 配置（记录所用 JBR 版本），随仓库提交即可，删除后会再生成。
@@ -207,7 +209,7 @@ gradlew :app:assembleDebug
 ### 4.5 GitHub Actions CI（云端构建）
 
 公共环境准备抽取为本地 composite action（`.github/actions/setup-build-env/`），
-所有 job 复用：JDK 17（temurin）+ Gradle 缓存 → 安装 SDK 组件
+所有 job 复用：JDK 21（temurin，须 ≥21 以加载 prebuilts 插件 jar，见 3.7）+ Gradle 缓存 → 安装 SDK 组件
 （`platforms;android-36.1`、`build-tools;36.1.0`、`ndk;28.2.13676358`、`cmake;3.22.1`）
 → 自动搭建 Node 12.13.0 本地 maven 仓库（Linux 侧 `linux-x64@tar.gz`，从 nodejs.org
 官方 dist 下载，GitHub 网络无需镜像）。CI 上无需任何手工准备——3.6 节的环境准备
