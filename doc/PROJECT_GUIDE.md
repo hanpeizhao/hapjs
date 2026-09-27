@@ -306,7 +306,7 @@ gradlew :app:assembleDebug
 
 ```
 hapjs
-├── doc/                     项目文档（本文档 + GIT_PROXY.md git 代理原理说明）
+├── doc/                     项目文档（本文档 + GIT_PROXY.md git 代理原理 + SUPPORT_V4_SHIM.md support-v4 垫片原理）
 ├── .github/                 GitHub 配置
 │   ├── workflows/           构建与发布工作流（android-build.yml / android-release.yml，见 4.5）
 │   └── actions/             本地 composite action（公共构建环境准备，供工作流复用）
