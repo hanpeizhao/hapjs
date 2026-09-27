@@ -84,15 +84,14 @@ dependencies {
     implementation project(":debug-log")
     api 'com.google.zxing:core:3.1.0'
 
+    // AGP 9：library 项目禁止以 fileTree/files 方式依赖本地 .aar（bundleAar 的
+    // hasLocalAarDeps 检查直接失败）。jsenv 目录已注册为 flatDir 仓库（根 build.gradle），
+    // 此处按 GAV 坐标解析 jsenv-<version>.aar（自包含 V8 引擎封装，无传递依赖）
     def jsenvArtifactId = 'jsenv'
-    def jsenvVersionCode = JSENV_VERSION
     if ('true' == project.properties['noV8Symbols']) {
         jsenvArtifactId += '-no-v8symbols'
     }
-    def jsenv = jsenvArtifactId + "-" + jsenvVersionCode + ".aar"
-
-    api fileTree(dir: 'jsenv-libs', include: [jsenv])
-    // api fileTree(include: ['*.aar'], dir: '/yourproject/build/outputs/aar')
+    api "org.hapjs:$jsenvArtifactId:$JSENV_VERSION"
     implementation "androidx.recyclerview:recyclerview:${rootProject.recyclerviewVersion}"
     implementation "androidx.constraintlayout:constraintlayout:${rootProject.androidXconstraintlayoutVersion}"
     implementation "com.google.android.material:material:${rootProject.androidXVersion}"
