@@ -14,7 +14,9 @@ android {
 
     signingConfigs {
         release {
-            storeFile file("../debug-key.keystore")
+            // 与平台包保持同证书（原 debug-key.keystore 与平台包 debug.keystore 不是同一证书，
+            // 会导致平台包 PermissionChecker.checkSignatures 校验失败、拒绝调试请求）
+            storeFile rootProject.file('../../../mockup/platform/android/app/debug.keystore')
             storePassword "android"
             keyAlias "androiddebugkey"
             keyPassword "android"

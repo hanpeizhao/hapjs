@@ -101,11 +101,26 @@ subprojects {
                         keyPassword project.properties['keyPassword']
                     }
                 }
+                // 调试器与平台包必须使用同一证书：平台包（mockup/platform/android）debug/release
+                // 构建默认统一用 mockup/platform/android/app/debug.keystore（共享块 "use default sig"），
+                // 平台包 PermissionChecker 回退逻辑会对调用方做 checkSignatures 校验，
+                // 证书不一致时直接拒绝（日志表现为 "Received ungranted request"）
+                core {
+                    storeFile rootProject.file('../../../mockup/platform/android/app/debug.keystore')
+                    storePassword 'android'
+                    keyAlias 'androiddebugkey'
+                    keyPassword 'android'
+                }
             }
             buildTypes {
+                debug {
+                    signingConfig signingConfigs.core
+                }
                 release {
                     if ('true' == project.properties['signMode']) {
                         signingConfig signingConfigs.release
+                    } else {
+                        signingConfig signingConfigs.core
                     }
                     if (project.name in applicationModules) {
                         minifyEnabled 'true' != project.properties['debugMode']
