@@ -47,3 +47,29 @@ runs:
           <packaging>tar.gz</packaging>
         </project>
         EOF
+
+    # jsenv（V8 引擎封装 aar）同样以 maven 坐标解析：AGP 9 禁止 library 项目 file 系引本地
+    # aar（bundleAar 的 hasLocalAarDeps 检查），runtime 以 org.hapjs:jsenv:1.2.8@aar 引用；
+    # 若不落本地仓库，解析会走到 google()/mavenCentral() 查询（404 无碍但徒增网络依赖）。
+    # pom+aar 从仓库源 jsenv-libs 复制，与本地 ~/.m2/manual-repo 准备方式一致（PROJECT_GUIDE 3.6）
+    - name: Prepare jsenv local maven repo
+      shell: bash
+      run: |
+        dir="$HOME/.m2/manual-repo/org/hapjs/jsenv/1.2.8"
+        src="$GITHUB_WORKSPACE/core/runtime/android/runtime/jsenv-libs"
+        mkdir -p "$dir"
+        cp "$src/jsenv-1.2.8.aar" "$src/jsenv-no-v8symbols-1.2.8.aar" "$dir/"
+        cat > "$dir/jsenv-1.2.8.pom" <<'EOF'
+        <?xml version="1.0" encoding="UTF-8"?>
+        <project xmlns="http://maven.apache.org/POM/4.0.0"
+                 xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+                 xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+          <modelVersion>4.0.0</modelVersion>
+          <groupId>org.hapjs</groupId>
+          <artifactId>jsenv</artifactId>
+          <version>1.2.8</version>
+          <packaging>aar</packaging>
+        </project>
+        EOF
+        sed 's|<artifactId>jsenv</artifactId>|<artifactId>jsenv-no-v8symbols</artifactId>|' \
+          "$dir/jsenv-1.2.8.pom" > "$dir/jsenv-no-v8symbols-1.2.8.pom"

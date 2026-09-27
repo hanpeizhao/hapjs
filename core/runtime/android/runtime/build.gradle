@@ -86,12 +86,13 @@ dependencies {
 
     // AGP 9：library 项目禁止以 fileTree/files 方式依赖本地 .aar（bundleAar 的
     // hasLocalAarDeps 检查直接失败）。jsenv 目录已注册为 flatDir 仓库（根 build.gradle），
-    // 此处按 GAV 坐标解析 jsenv-<version>.aar（自包含 V8 引擎封装，无传递依赖）
+    // 按 GAV 解析 jsenv-<version>.aar（自包含 V8 引擎封装，无传递依赖）。
+    // 必须用 @aar 显式指定扩展名，否则 Gradle 默认按 jar 类型查找（jsenv-1.2.8.jar 不存在）
     def jsenvArtifactId = 'jsenv'
     if ('true' == project.properties['noV8Symbols']) {
         jsenvArtifactId += '-no-v8symbols'
     }
-    api "org.hapjs:$jsenvArtifactId:$JSENV_VERSION"
+    api "org.hapjs:$jsenvArtifactId:$JSENV_VERSION@aar"
     implementation "androidx.recyclerview:recyclerview:${rootProject.recyclerviewVersion}"
     implementation "androidx.constraintlayout:constraintlayout:${rootProject.androidXconstraintlayoutVersion}"
     implementation "com.google.android.material:material:${rootProject.androidXVersion}"

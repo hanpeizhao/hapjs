@@ -370,6 +370,13 @@ hapjs
 - **Sync/构建报找不到 node 12.13.0？** 本地 maven 仓库缺发行版：确认
   `~/.m2/manual-repo/org/nodejs/node/12.13.0/` 下有 `node-12.13.0.pom` 与
   `node-12.13.0-win-x64.zip`（见 3.6）。
+- **构建报 `Could not find org.hapjs:jsenv:1.2.8`？** 本地 maven 仓库缺 jsenv 引擎封装：
+  确认 `~/.m2/manual-repo/org/hapjs/jsenv/1.2.8/` 下有 `jsenv-1.2.8.pom`、
+  `jsenv-1.2.8.aar`（及 no-v8symbols 变体）。AGP 9 禁止 library 项目以 fileTree/files
+  方式引本地 .aar（bundleAar 的 hasLocalAarDeps 检查），:runtime 已改为
+  `org.hapjs:jsenv:1.2.8@aar` 坐标解析；pom+aar 从仓库源
+  `core/runtime/android/runtime/jsenv-libs/` 复制即可（CI 由 composite action /
+  .gitlab-ci.yml 自动准备）。不要用普通 `files()` 引 aar 替代——那是本次迁移专门消除的写法。
 - **npm install / npm run 报 `Cannot find module 'node:path'`？** 系统 PATH 里的全局 npm
   与 node 12 不兼容；工程已通过 NodeTask + `npm_config_prefix` 隔离，若手动操作请勿直接
   用系统 `npm` 跑 `core/framework`，用发行版内的 npm-cli.js。
