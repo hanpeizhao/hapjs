@@ -226,12 +226,37 @@ gradlew :app:assembleDebug
 > 功能已由上表两个工作流在新工具链上等价承接。
 >
 > [.gitlab-ci.yml](../.gitlab-ci.yml)（GitLab CI）与 GitHub 侧完全对齐：
-> 基于 `eclipse-temurin:17-jdk` 镜像，环境准备抽为隐藏模板 `.build-env`（逻辑等价于
+> 基于 `eclipse-temurin:21-jdk` 镜像，环境准备抽为隐藏模板 `.build-env`（逻辑等价于
 > composite action，Node maven 仓库真身在项目内 `.node-m2/` 并软链到 `~/.m2/` 以支持
 > GitLab 缓存）。日常构建（push/MR）为 phone/tv/debugger 三 job 并行构建 debug + release
 > （checkstyle + scan_build.sh 门禁在 phone job）；push tag（tag 号即版本号，如
 > `git tag 1300`）触发发布 job：以 `-DappVersionTag` 构建 phone/调试器 release，
 > APK + mapping 上传为 job artifacts（30 天有效）。
+
+### 4.6 产物去向：artifact 与 Release 是两回事
+
+决定产物去向的不是"手动执行还是自动执行"，而是**工作流脚本里执行了哪些命令**：
+触发条件只控制"脚本什么时候跑"，脚本跑起来后执行了什么，产物就去哪里。
+
+| 去向 | 性质 | 谁能写入 | 有效期 |
+|---|---|---|---|
+| **artifact**（运行产物） | CI 平台的临时存储，从 Actions 运行页 / GitLab 管道页下载 | `upload-artifact`（GitHub）或 `artifacts:`（GitLab）声明即存 | GitHub 默认 90 天，GitLab 按声明（日常 1 周 / 发布 30 天），到期自动删除 |
+| **Release**（发布区） | 仓库 Releases 页的正式版本条目，附件永久保留 | 只有脚本里显式执行发布命令才会出现 | 永久 |
+
+日常构建工作流里只有 `gradlew assemble` + `upload-artifact`，**没有任何发布
+命令，所以永远不会进 Releases 页**。发布工作流（android-release.yml）多出两条
+关键命令——它们等价于你亲手在网页上执行 Releases → Draft a new release →
+拖入 APK → Publish：
+
+- `gh release create "$VERSION_TAG"`（L47）：在 Releases 区新建版本条目；
+- `gh release upload "$VERSION_TAG" *.apk mapping*`（L62）：把 APK/mapping
+  上传为该条目的附件。
+
+`gh` 是 GitHub 官方命令行工具，工作流只是替你自动执行这套网页操作。因此：
+
+- 出正式版：Actions → Android Release → Run workflow → 填版本号（如 `1300`）；
+- 若希望 push tag 自动发布（无需网页手动触发），把 android-release.yml 的
+  `workflow_dispatch` 触发改为 `push: tags: ['*']` 即可（GitLab 侧已是 tag 触发）。
 
 ---
 
@@ -281,7 +306,7 @@ gradlew :app:assembleDebug
 
 ```
 hapjs
-├── doc/                     项目文档（本文档）
+├── doc/                     项目文档（本文档 + GIT_PROXY.md git 代理原理说明）
 ├── .github/                 GitHub 配置
 │   ├── workflows/           构建与发布工作流（android-build.yml / android-release.yml，见 4.5）
 │   └── actions/             本地 composite action（公共构建环境准备，供工作流复用）
