@@ -10,14 +10,25 @@
 
 buildscript {
     repositories {
-        // 直连 google/mavenCentral 超时的网络环境下，优先使用国内镜像（腾讯镜像对 AGP 与
+        // GitHub Actions / GitLab CI 的 runner 均在海外：官方源直连最快最稳，不走国内镜像
+        // （镜像服务端偶发 502 Bad Gateway 会令全部 job 失败，见 2026-09-28 CI 事故）。
+        // 判断依据用 workflows/.gitlab-ci.yml 显式注入的 REPO_OFFICIAL，而非内置 CI 变量——
+        // 本地 IDE/工具链也会注入 CI=true（本机即如此），语义不可靠；
+        // 本地国内网络直连 google/mavenCentral 超时，仍优先镜像（腾讯镜像对 AGP 与
         // node-gradle 等插件的同步比阿里云更全），google() 直连仅作为兜底放在最后
-        maven { url 'https://maven.aliyun.com/repository/google' }
-        maven { url 'https://maven.aliyun.com/repository/public' }
-        maven { url 'https://mirrors.cloud.tencent.com/nexus/repository/maven-public/' }
-        mavenCentral()
-        maven { url "https://plugins.gradle.org/m2/" }
-        google()
+        def onCI = 'true' == System.getenv('REPO_OFFICIAL')
+        if (onCI) {
+            google()
+            mavenCentral()
+            maven { url "https://plugins.gradle.org/m2/" }
+        } else {
+            maven { url 'https://maven.aliyun.com/repository/google' }
+            maven { url 'https://maven.aliyun.com/repository/public' }
+            maven { url 'https://mirrors.cloud.tencent.com/nexus/repository/maven-public/' }
+            mavenCentral()
+            maven { url "https://plugins.gradle.org/m2/" }
+            google()
+        }
     }
     dependencies {
         classpath 'com.android.tools.build:gradle:9.2.1'
@@ -47,11 +58,18 @@ allprojects {
         } else {
             maven { url project.properties['privateRepo'] }
         }
-        maven { url 'https://maven.aliyun.com/repository/google' }
-        maven { url 'https://maven.aliyun.com/repository/public' }
-        maven { url 'https://mirrors.cloud.tencent.com/nexus/repository/maven-public/' }
-        mavenCentral()
-        google()
+        // 仓库顺序与 buildscript 同源：CI 用官方源直连，本地用国内镜像（注释见 buildscript）
+        def onCI = 'true' == System.getenv('REPO_OFFICIAL')
+        if (onCI) {
+            google()
+            mavenCentral()
+        } else {
+            maven { url 'https://maven.aliyun.com/repository/google' }
+            maven { url 'https://maven.aliyun.com/repository/public' }
+            maven { url 'https://mirrors.cloud.tencent.com/nexus/repository/maven-public/' }
+            mavenCentral()
+            google()
+        }
     }
 }
 
