@@ -270,10 +270,17 @@ subprojects {
         })
         androidTestImplementation 'androidx.test.uiautomator:uiautomator:2.2.0'
         testImplementation 'junit:junit:4.12'
+        // soloader 0.10.1 起不再传递 jsr305，多个模块直接使用了 javax.annotation.Nullable
+        compileOnly 'com.google.code.findbugs:jsr305:3.0.2'
     }
 
     configurations.configureEach {
         exclude group: 'com.facebook.soloader', module: 'annotation'
+        // soloader 全局统一到 fresco 2.3.0 的原配版本 0.10.1：
+        // yoga 1.19.0 依赖 boolean 签名的 SoLoader.loadLibrary（0.9.0 起改为 boolean），
+        // 旧 0.2/0.3.0 的 void 签名已不存在，且 resolutionStrategy 不跨模块传递，
+        // 必须在最终打包的 :app 依赖图上统一强制
+        resolutionStrategy.force 'com.facebook.soloader:soloader:0.10.1'
     }
 }
 

@@ -5,6 +5,8 @@
 
 dependencies {
     implementation "androidx.localbroadcastmanager:localbroadcastmanager:${rootProject.localbroadcastmanagerVersion}"
+    // soloader 0.10.1 起不再传递 jsr305，LauncherActivity 使用了 javax.annotation.Nullable
+    compileOnly 'com.google.code.findbugs:jsr305:3.0.2'
     if ('repo' != System.properties['moduleDepsType']) {
         implementation project(':runtime')
         implementation project(':card-api')

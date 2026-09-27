@@ -15,6 +15,7 @@ import com.facebook.yoga.YogaMeasureFunction;
 import com.facebook.yoga.YogaMeasureMode;
 import com.facebook.yoga.YogaMeasureOutput;
 import com.facebook.yoga.YogaNode;
+import com.facebook.yoga.YogaNodeFactory;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -40,7 +41,7 @@ public class YogaLayout extends ViewGroup {
     public YogaLayout(Context context, AttributeSet attrs, int defStyleAttr) {
         super(context, attrs, defStyleAttr);
 
-        mYogaNode = new YogaNode();
+        mYogaNode = YogaNodeFactory.create();
         mYogaNodes = new HashMap<>();
 
         mYogaNode.setData(this);
@@ -123,7 +124,7 @@ public class YogaLayout extends ViewGroup {
             childNode = getYogaNodeOf(child);
 
             if (childNode == null) {
-                childNode = new YogaNode();
+                childNode = YogaNodeFactory.create();
             }
 
             childNode.setData(child);
@@ -175,10 +176,10 @@ public class YogaLayout extends ViewGroup {
             if (mYogaNodes.containsKey(child)) {
                 node = mYogaNodes.get(child);
                 if (node == null) {
-                    node = new YogaNode();
+                    node = YogaNodeFactory.create();
                 }
             } else {
-                node = new YogaNode();
+                node = YogaNodeFactory.create();
             }
         } else {
             int childIndex = mYogaNode.indexOf(node);

@@ -15,6 +15,7 @@ import android.view.View;
 import android.view.ViewGroup;
 import android.widget.LinearLayout;
 import com.facebook.yoga.YogaNode;
+import com.facebook.yoga.YogaNodeFactory;
 import com.google.android.material.tabs.TabLayout;
 
 import java.util.ArrayList;
@@ -100,7 +101,7 @@ public class TabBar extends AbstractScrollable<PercentTabLayout>
         PercentTabLayout tabLayout = new PercentTabLayout(mContext);
         tabLayout.setComponent(this);
         // fake yoga node.
-        mNode = new YogaNode();
+        mNode = YogaNodeFactory.create();
         LinearLayout.LayoutParams params =
                 new LinearLayout.LayoutParams(
                         LinearLayout.LayoutParams.MATCH_PARENT,

@@ -39,6 +39,12 @@ class AnnotationGeneratorPlugin implements Plugin<Project> {
                             mergedAssetsDir = new File(buildDir,
                                     "intermediates/merged_assets/${variantName}/merge${variantName}Assets/out/hap")
                         }
+                        if (!mergedAssetsDir.exists()) {
+                            // AGP 9：merged_assets 更名为 assets，合并输出直接位于
+                            // merge<Variant>Assets/hap（不再有 out 子层）
+                            mergedAssetsDir = new File(buildDir,
+                                    "intermediates/assets/${variantName}/merge${variantName}Assets/hap")
+                        }
                         def cardJsonFile = new File(buildDir,
                                 "intermediates/merged_assets/${variantName}/out/hap/card.json")
                         if (!cardJsonFile.exists()) {

@@ -13,6 +13,10 @@ dependencies {
 
     api "androidx.recyclerview:recyclerview:${rootProject.recyclerviewVersion}"
     api 'com.facebook.fbui.textlayoutbuilder:textlayoutbuilder:1.4.0'
+    // textlayoutbuilder 1.4.0 运行时引用 android.support.v4.util.LruCache 与
+    // android.support.v4.text.TextDirectionHeuristics*（可选依赖未随包发布）；
+    // AGP 9 已移除 Jetifier 且 androidx.core 与 support-compat 整包类冲突，
+    // 故在本模块 src/main/java/android/support/v4/ 下提供同包名 shim 实现
     api 'com.airbnb.android:lottie:3.5.0'
     api "com.google.android.exoplayer:exoplayer-core:${rootProject.exoplayerVersion}"
     api "com.google.android.exoplayer:exoplayer-dash:${rootProject.exoplayerVersion}"

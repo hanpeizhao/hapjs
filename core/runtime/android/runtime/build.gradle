@@ -70,10 +70,13 @@ dependencies {
     api 'com.facebook.fresco:animated-gif:2.3.0'
     api 'com.facebook.fresco:animated-webp:2.3.0'
     api 'com.facebook.fresco:animated-drawable:2.3.0'
-    api 'com.facebook.yoga:yoga:1.5.0'
-    // Gradle 9：ExternalModuleDependency.force 属性已移除，改用 resolutionStrategy.force
-    api 'com.facebook.soloader:soloader:0.3.0'
+    api 'com.facebook.yoga:yoga:1.19.0'
+    // soloader 必须 ≥0.9（YogaNodeFactory 依赖 boolean 签名的 loadLibrary），
+    // 与 fresco 2.3.0 的期望版本（0.10.1）对齐；根 build.gradle 中全局 force 0.10.1
+    api 'com.facebook.soloader:soloader:0.10.1'
     api 'com.caverock:androidsvg:1.4'
+    // soloader 0.10.1 不再传递 jsr305，而代码里使用了 javax.annotation.Nullable
+    compileOnly 'com.google.code.findbugs:jsr305:3.0.2'
     api 'org.greenrobot:eventbus:3.1.1'
     api 'com.tencent:mmkv:1.2.1'
     compileOnly project(':card-api')
@@ -95,10 +98,7 @@ dependencies {
     implementation "com.google.android.material:material:${rootProject.androidXVersion}"
 }
 
-// 原 force = true 的等效实现：全配置强制 soloader 0.3.0
-configurations.configureEach {
-    resolutionStrategy.force 'com.facebook.soloader:soloader:0.3.0'
-}
+// soloader 版本统一由根 build.gradle 的全局 force 管理（0.10.1）
 
 import com.github.gradle.node.task.NodeTask
 
