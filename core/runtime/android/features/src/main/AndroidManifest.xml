@@ -56,9 +56,11 @@
                  android:label="@string/app_name"
                  android:supportsRtl="true">
 
+        <!-- 扫码入口 Activity：供调试器（org.hapjs.debugger）等外部应用跨包调起，
+             targetSdk 31+ 下 intent-filter Activity 必须显式 exported -->
         <activity
             android:name=".barcode.CaptureActivity"
-            android:exported="false"
+            android:exported="true"
             android:screenOrientation="portrait">
             <intent-filter>
                 <action android:name="org.hapjs.action.SCAN" />
