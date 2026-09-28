@@ -11,6 +11,9 @@ plugins {
 dependencies {
     implementation gradleApi()
     implementation localGroovy()
+    // Variant API（AndroidComponentsExtension/Variant 等）编译期需要；
+    // 运行时由主工程 buildscript classpath 上的 AGP 提供，故 compileOnly
+    compileOnly 'com.android.tools.build:gradle-api:9.2.1'
 }
 
 gradlePlugin {
